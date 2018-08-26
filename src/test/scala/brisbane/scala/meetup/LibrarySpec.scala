@@ -1,6 +1,7 @@
 package brisbane.scala.meetup
 
 import brisbane.scala.meetup.models.Book
+import brisbane.scala.meetup.service.BooksDataServiceImpl
 import cats.effect.IO
 import org.http4s._
 import org.http4s.implicits._
@@ -9,8 +10,8 @@ import io.circe.syntax._
 
 class LibrarySpec extends org.specs2.mutable.Specification {
 
-  val libraryService = new LibraryService[IO].service.orNotFound
-  
+  val libraryService = new LibraryService[IO](new BooksDataServiceImpl[IO]).service.orNotFound
+
   "POST /books" >> {
     val book = Book(
       "Fear and Loathing in Las Vegas",
@@ -32,7 +33,7 @@ class LibrarySpec extends org.specs2.mutable.Specification {
   "GET /books/id" >> {
     val request = Request[IO](Method.GET, Uri.uri("/books/id"))
     val response = libraryService.run(request).unsafeRunSync()
-    response.status must beEqualTo(Status.NotImplemented)
+    response.status must beEqualTo(Status.NotFound)
   }
 
   "PUT /books/id" >> {
@@ -44,14 +45,14 @@ class LibrarySpec extends org.specs2.mutable.Specification {
       206)
     val request = Request[IO](Method.PUT, Uri.uri("/books/id")).withBody(book.asJson)
     val response = libraryService.run(request.unsafeRunSync()).unsafeRunSync()
-    response.status must beEqualTo(Status.NotImplemented)
+    response.status must beEqualTo(Status.NotFound)
   }
 
   "PATCH /books/id" >> {
     val bookUpdate = Book.Partial(author = Some("Hunter S. Thompson"))
     val request = Request[IO](Method.PATCH, Uri.uri("/books/id")).withBody(bookUpdate.asJson)
     val response = libraryService.run(request.unsafeRunSync()).unsafeRunSync()
-    response.status must beEqualTo(Status.NotImplemented)
+    response.status must beEqualTo(Status.NotFound)
   }
 
 }

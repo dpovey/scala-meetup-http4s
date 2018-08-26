@@ -3,53 +3,75 @@ package brisbane.scala.meetup
 import cats.effect.Effect
 import cats.implicits._
 import org.http4s._
-import org.http4s.circe._
-import brisbane.scala.meetup.models.Book
+import org.http4s.circe.CirceEntityCodec._
+import brisbane.scala.meetup.models.{Book, Id}
 import brisbane.scala.meetup.models.Book._
+import brisbane.scala.meetup.service.BooksDataService
 import org.http4s.dsl.Http4sDsl
 
-class LibraryService[F[_]: Effect] extends Http4sDsl[F] {
+class LibraryService[F[_]: Effect](
+  val booksDataService: BooksDataService[F]
+) extends Http4sDsl[F] {
 
-  val Books = Root / "books"
+  private val Books = Root / "books"
 
-  implicit val bookDecoder: EntityDecoder[F, Book] = jsonOf[F, Book]
-  implicit val bookPartialDecoder: EntityDecoder[F, Book.Partial] = jsonOf[F, Book.Partial]
+  private def handleError[F[_]](status: Status)(implicit F: Effect[F]) = Response[F](status).pure[F]
 
   val service: HttpService[F] = {
     HttpService[F] {
 
       // Create a book
-      case req @ POST -> Root / "books"  =>
+      case req @ POST -> Root / "books" =>
         for {
-          book <- req.as[Book]
-          resp <- NotImplemented(s"for $book")
-        } yield resp
+          book   <- req.as[Book]
+          result <- booksDataService.create(book).value.flatMap {
+            case Left(err) => handleError(err)
+            case Right(id)    => Created(Id(id))
+          }
+        } yield result
 
       // List books
-      case GET -> Books =>
-        NotImplemented()
+      case GET -> Books => {
+        booksDataService.fetch().value.flatMap {
+          case Left(err) => handleError(err)
+          case Right(books) => Ok(books)
+        }
+      }
 
       // Get a particular book
-      case GET -> Books / id =>
-        NotImplemented(s"for $id")
+      case GET -> Books / IntVar(id) => {
+        booksDataService.fetch(id).value.flatMap {
+          case Left(err) => handleError(err)
+          case Right(book) => Ok(book)
+        }
+      }
 
       // Upsert a book
-      case req @ PUT -> Books / id =>
+      case req @ PUT -> Books / IntVar(id) =>
         for {
           book <- req.as[Book]
-          resp <- NotImplemented(s"for $id and $book")
-        } yield resp
+          result <- booksDataService.upsert(id, book).value.flatMap {
+            case Left(err) => handleError(err)
+            case Right(()) => Ok()
+          }
+        } yield result
 
       // Modify a book
-      case req @ PATCH -> Books / id =>
+      case req @ PATCH -> Books / IntVar(id) =>
         for {
           bookUpdate <- req.as[Book.Partial]
-          resp <- NotImplemented(s"for $id and $bookUpdate")
-        } yield resp
+          result <- booksDataService.update(id, bookUpdate).value.flatMap {
+            case Left(err) => handleError(err)
+            case Right(()) => Ok()
+          }
+        } yield result
 
       // Delete a book
-      case DELETE -> Books / id =>
-        NotImplemented(s"for $id")
+      case DELETE -> Books / IntVar(id) =>
+        booksDataService.delete(id).value.flatMap {
+          case Left(err) => handleError(err)
+          case Right(()) => Ok()
+        }
     }
   }
 }

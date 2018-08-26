@@ -1,5 +1,6 @@
 package brisbane.scala.meetup
 
+import brisbane.scala.meetup.service.BooksDataServiceImpl
 import cats.effect.{Effect, IO}
 import fs2.StreamApp
 import org.http4s.server.blaze.BlazeBuilder
@@ -14,7 +15,9 @@ object LibraryServer extends StreamApp[IO] {
 
 object ServerStream {
 
-  def libraryService[F[_]: Effect] = new LibraryService[F].service
+  def booksDataService[F[_]: Effect] = new BooksDataServiceImpl[F]
+
+  def libraryService[F[_]: Effect] = new LibraryService[F](booksDataService).service
 
   def stream[F[_]: Effect](implicit ec: ExecutionContext) =
     BlazeBuilder[F]
