@@ -1,5 +1,7 @@
 package brisbane.scala.meetup
 
+import java.util.UUID
+
 import cats.effect.Effect
 import cats.implicits._
 import org.http4s._
@@ -9,13 +11,19 @@ import brisbane.scala.meetup.models.Book._
 import brisbane.scala.meetup.service.BooksDataService
 import org.http4s.dsl.Http4sDsl
 
+import scala.util.Try
+
 class LibraryService[F[_]: Effect](
   val booksDataService: BooksDataService[F]
 ) extends Http4sDsl[F] {
 
   private val Books = Root / "books"
 
-  private def handleError[F[_]](status: Status)(implicit F: Effect[F]) = Response[F](status).pure[F]
+  private def handleError(status: Status) = Response[F](status).pure[F]
+
+  object IdVar {
+    def unapply(arg: String): Option[Id] = Try { UUID.fromString(arg) }.toOption.map(Id(_))
+  }
 
   val service: HttpService[F] = {
     HttpService[F] {
@@ -26,7 +34,7 @@ class LibraryService[F[_]: Effect](
           book   <- req.as[Book]
           result <- booksDataService.create(book).value.flatMap {
             case Left(err) => handleError(err)
-            case Right(id)    => Created(Id(id))
+            case Right(id)    => Created(Map("id" -> id))
           }
         } yield result
 
@@ -39,7 +47,7 @@ class LibraryService[F[_]: Effect](
       }
 
       // Get a particular book
-      case GET -> Books / IntVar(id) => {
+      case GET -> Books / IdVar(id) => {
         booksDataService.fetch(id).value.flatMap {
           case Left(err) => handleError(err)
           case Right(book) => Ok(book)
@@ -47,7 +55,7 @@ class LibraryService[F[_]: Effect](
       }
 
       // Upsert a book
-      case req @ PUT -> Books / IntVar(id) =>
+      case req @ PUT -> Books / IdVar(id) =>
         for {
           book <- req.as[Book]
           result <- booksDataService.upsert(id, book).value.flatMap {
@@ -57,7 +65,7 @@ class LibraryService[F[_]: Effect](
         } yield result
 
       // Modify a book
-      case req @ PATCH -> Books / IntVar(id) =>
+      case req @ PATCH -> Books / IdVar(id) =>
         for {
           bookUpdate <- req.as[Book.Partial]
           result <- booksDataService.update(id, bookUpdate).value.flatMap {
@@ -67,7 +75,7 @@ class LibraryService[F[_]: Effect](
         } yield result
 
       // Delete a book
-      case DELETE -> Books / IntVar(id) =>
+      case DELETE -> Books / IdVar(id) =>
         booksDataService.delete(id).value.flatMap {
           case Left(err) => handleError(err)
           case Right(()) => Ok()

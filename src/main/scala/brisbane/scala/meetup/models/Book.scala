@@ -13,6 +13,32 @@ case class Book(
 
 object Book  {
 
+  def withId(id: Id, book: Book) = Book.WithId(
+    id = id,
+    title = book.title,
+    author = book.author,
+    deweyDecimalClass = book.deweyDecimalClass,
+    libraryOfCongress = book.libraryOfCongress,
+    pages = book.pages
+  )
+
+  case class WithId(
+    id: Id,
+    title: String,
+    author: String,
+    deweyDecimalClass: String,
+    libraryOfCongress: String,
+    pages: Int
+  ) {
+    lazy val book = Book(
+      title = title,
+      author = author,
+      deweyDecimalClass = deweyDecimalClass,
+      libraryOfCongress = libraryOfCongress,
+      pages = pages,
+    )
+  }
+
   case class Partial(
     title: Option[String] = None,
     author: Option[String] = None,
@@ -21,9 +47,12 @@ object Book  {
     pages: Option[Int] = None
   )
 
-  implicit val encoder: Encoder[Book] = deriveEncoder
-  implicit val decoder: Decoder[Book] = deriveDecoder
+  lazy implicit val encoder: Encoder[Book] = deriveEncoder
+  lazy implicit val decoder: Decoder[Book] = deriveDecoder
 
-  implicit val partialEncoder: Encoder[Partial] = deriveEncoder
-  implicit val partialDecoder: Decoder[Partial] = deriveDecoder
+  lazy implicit val withIdEncoder: Encoder[WithId] = deriveEncoder
+  lazy implicit val withIdDecoder: Decoder[WithId] = deriveDecoder
+
+  lazy implicit val partialEncoder: Encoder[Partial] = deriveEncoder
+  lazy implicit val partialDecoder: Decoder[Partial] = deriveDecoder
 }
